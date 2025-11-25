@@ -22,9 +22,9 @@ You can start editing the landing page by modifying `src/app/page.tsx`. The page
 Key features:
 
 - App Router + TypeScript + strict ESLint.
+- Server-rendered stock dashboard using Yahoo Finance JSON & RSS (free, no API keys).
 - Vercel Analytics & Speed Insights pre-configured.
-- Production metadata/OpenGraph tags ready for social sharing.
-- Responsive marketing page demonstrating styling best practices.
+- CNBC-inspired UI with watchlist shortcuts, intraday range bar, historical table, and market headlines.
 
 ## Learn More
 
@@ -34,6 +34,16 @@ To learn more about Next.js, take a look at the following resources:
 - [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Usage
+
+- Landing page loads TSLA by default—use the search bar or quick symbols to switch tickers.
+- Metrics shown: current value, change %, day low/high, open, previous close.
+- Headlines and historical closes are pulled from Yahoo Finance (JSON/RSS/chart endpoints).
+- API routes:
+  - `GET /api/quote?symbol=TSLA`
+    - Optional query params: `history=true`, `range=5d|1mo|3mo|6mo|1y`, `interval=1d|1wk`
+  - `GET /api/news?symbol=TSLA&limit=6`
 
 ## Deploy on Vercel
 
