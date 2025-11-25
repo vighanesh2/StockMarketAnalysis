@@ -87,6 +87,7 @@ export async function fetchHistorical(
   _interval: "1d" | "1wk" = "1d"
 ): Promise<HistoricalBar[]> {
   const period2 = new Date();
+  period2.setDate(period2.getDate() + 1); // Add 1 day to include today's data
   const period1 = new Date();
 
   switch (range) {

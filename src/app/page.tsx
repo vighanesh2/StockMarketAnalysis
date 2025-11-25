@@ -12,7 +12,14 @@ type HomeProps = {
 
 const DEFAULT_SYMBOL = "TSLA";
 const WATCHLIST = ["TSLA", "AAPL", "MSFT", "NVDA", "SPY", "AMZN", "META", "GOOGL"];
-const HISTORICAL_RANGE: Parameters<typeof fetchHistorical>[1] = "1mo";
+const RANGE_OPTIONS = [
+  { value: "5d", label: "5 Days" },
+  { value: "1mo", label: "1 Month" },
+  { value: "3mo", label: "3 Months" },
+  { value: "6mo", label: "6 Months" },
+  { value: "1y", label: "1 Year" },
+] as const;
+const DEFAULT_RANGE = "1mo";
 const HISTORICAL_INTERVAL: Parameters<typeof fetchHistorical>[2] = "1d";
 
 function formatCurrency(value: number | null, currency = "USD") {
@@ -49,8 +56,11 @@ function formatTimestamp(timestamp: number | null) {
   })}`;
 }
 
-function formatDate(date: string) {
-  return new Date(date).toLocaleDateString("en-US", {
+function formatDate(dateStr: string) {
+  // Parse as local date to avoid timezone shift
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  return date.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
   });
@@ -61,8 +71,13 @@ export default async function Home({ searchParams }: HomeProps) {
   const requestedSymbol = Array.isArray(resolvedSearchParams.symbol)
     ? resolvedSearchParams.symbol[0]
     : resolvedSearchParams.symbol;
+  const requestedRange = Array.isArray(resolvedSearchParams.range)
+    ? resolvedSearchParams.range[0]
+    : resolvedSearchParams.range;
 
   const symbol = (requestedSymbol ?? DEFAULT_SYMBOL).toUpperCase().trim();
+  const range = (RANGE_OPTIONS.find((r) => r.value === requestedRange)?.value ??
+    DEFAULT_RANGE) as Parameters<typeof fetchHistorical>[1];
 
   let error: string | null = null;
   let quote: QuoteData | null = null;
@@ -73,7 +88,7 @@ export default async function Home({ searchParams }: HomeProps) {
     const [resolvedQuote, resolvedNews, resolvedHistory] = await Promise.all([
       fetchQuote(symbol),
       fetchNews(symbol, 6),
-      fetchHistorical(symbol, HISTORICAL_RANGE, HISTORICAL_INTERVAL),
+      fetchHistorical(symbol, range, HISTORICAL_INTERVAL),
     ]);
     quote = resolvedQuote;
     news = resolvedNews;
@@ -122,8 +137,16 @@ export default async function Home({ searchParams }: HomeProps) {
 
   return (
     <main className={styles.page}>
+      {/* Top Navigation */}
+      <div className={styles.topBar}>
+        <div className={styles.logo}>
+          Stock<span>Market</span>
+        </div>
+      </div>
+
+      {/* Header with Ticker Info */}
       <section className={styles.header}>
-        <div>
+        <div className={styles.tickerInfo}>
           <p className={styles.exchange}>
             {quote.exchange} · {quote.currency}
           </p>
@@ -139,7 +162,7 @@ export default async function Home({ searchParams }: HomeProps) {
           <input
             id="symbol"
             name="symbol"
-            placeholder="Search ticker e.g. TSLA"
+            placeholder="Enter symbol..."
             defaultValue={symbol}
             autoComplete="off"
             spellCheck={false}
@@ -148,6 +171,7 @@ export default async function Home({ searchParams }: HomeProps) {
         </form>
       </section>
 
+      {/* Watchlist */}
       <section className={styles.watchlist}>
         <p>Quick symbols:</p>
         <ul>
@@ -159,123 +183,140 @@ export default async function Home({ searchParams }: HomeProps) {
         </ul>
       </section>
 
-      <section className={styles.hero}>
-        <div>
-          <p className={styles.price}>{formatCurrency(quote.price, quote.currency)}</p>
-          <p
-            className={changeIsPositive ? styles.positiveChange : styles.negativeChange}
-          >
-            {quote.change >= 0 ? "+" : ""}
-            {formatCurrency(Math.abs(quote.change), quote.currency)} ·
-            {formatPercent(quote.changePercent)}
-          </p>
-        </div>
-        <div className={styles.rangeCard}>
-          <div className={styles.rangeLabels}>
-            <span>{formatCurrency(quote.dayLow, quote.currency)}</span>
-            <span>Day Range</span>
-            <span>{formatCurrency(quote.dayHigh, quote.currency)}</span>
+      {/* Main Content Area */}
+      <div className={styles.mainContent}>
+        {/* Price Hero */}
+        <section className={styles.hero}>
+          <div className={styles.priceBlock}>
+            <p className={styles.price}>{formatCurrency(quote.price, quote.currency)}</p>
+            <p
+              className={changeIsPositive ? styles.positiveChange : styles.negativeChange}
+            >
+              {quote.change >= 0 ? "+" : ""}
+              {formatCurrency(Math.abs(quote.change), quote.currency)} ({formatPercent(quote.changePercent)})
+            </p>
           </div>
-          <div className={styles.rangeTrack}>
-            {intradayRangePercent != null ? (
-              <span
-                className={styles.rangeProgress}
-                style={{ width: `${intradayRangePercent}%` }}
-              />
-            ) : (
-              <span className={styles.rangeUnavailable}>No intraday data</span>
-            )}
+          <div className={styles.rangeCard}>
+            <div className={styles.rangeLabels}>
+              <span>{formatCurrency(quote.dayLow, quote.currency)}</span>
+              <span>Day Range</span>
+              <span>{formatCurrency(quote.dayHigh, quote.currency)}</span>
+            </div>
+            <div className={styles.rangeTrack}>
+              {intradayRangePercent != null ? (
+                <span
+                  className={styles.rangeProgress}
+                  style={{ width: `${intradayRangePercent}%` }}
+                />
+              ) : (
+                <span className={styles.rangeUnavailable}>No intraday data</span>
+              )}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section className={styles.metrics}>
-        {stats.map((stat) => (
-          <article className={styles.metricCard} key={stat.label}>
-            <p className={styles.metricLabel}>{stat.label}</p>
-            <p className={styles.metricValue}>{stat.value}</p>
-          </article>
-        ))}
-      </section>
-
-      <section className={styles.fetcherSection}>
-        <h2>Interactive fetch</h2>
-        <p>Manually request the latest TSLA historical data snapshot from Yahoo Finance.</p>
-        <HistoricalFetcher symbol="TSLA" />
-      </section>
-
-      <section className={styles.historySection}>
-        <div className={styles.historyHeader}>
-          <div>
-            <h2>Recent closes</h2>
-            <p>Historical Yahoo Finance data ({HISTORICAL_RANGE} / {HISTORICAL_INTERVAL})</p>
-          </div>
-          <Link href={`/api/quote?symbol=${symbol}&history=true`} target="_blank">
-            View JSON
-          </Link>
-        </div>
-        {history.length === 0 ? (
-          <p className={styles.historyEmpty}>Historical data unavailable.</p>
-        ) : (
-          <div className={styles.historyTableWrapper}>
-            <table className={styles.historyTable}>
-              <thead>
-                <tr>
-                  <th scope="col">Date</th>
-                  <th scope="col">Open</th>
-                  <th scope="col">High</th>
-                  <th scope="col">Low</th>
-                  <th scope="col">Close</th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.slice(-10).reverse().map((bar) => (
-                  <tr key={bar.date}>
-                    <td>{formatDate(bar.date)}</td>
-                    <td>{formatCurrency(bar.open, quote.currency)}</td>
-                    <td>{formatCurrency(bar.high, quote.currency)}</td>
-                    <td>{formatCurrency(bar.low, quote.currency)}</td>
-                    <td>{formatCurrency(bar.close, quote.currency)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-
-      <section className={styles.newsSection}>
-        <div className={styles.newsHeader}>
-          <h2>Market headlines</h2>
-          <p>Powered by Yahoo Finance RSS feed</p>
-        </div>
-        <div className={styles.newsGrid}>
-          {news.length === 0 && (
-            <article className={styles.newsCard}>
-              <p>No headlines available for this ticker.</p>
-            </article>
-          )}
-          {news.map((item) => (
-            <article key={item.link} className={styles.newsCard}>
-              <p className={styles.newsMeta}>
-                {new Date(item.pubDate).toLocaleString("en-US", {
-                  hour: "numeric",
-                  minute: "2-digit",
-                  month: "short",
-                  day: "numeric",
-                })}
-                {item.source ? ` · ${item.source}` : null}
-              </p>
-              <a href={item.link} target="_blank" rel="noreferrer">
-                <h3>{item.title}</h3>
-              </a>
-              {item.description ? (
-                <p className={styles.newsDescription}>{item.description}</p>
-              ) : null}
+        {/* Key Metrics */}
+        <section className={styles.metrics}>
+          {stats.map((stat) => (
+            <article className={styles.metricCard} key={stat.label}>
+              <p className={styles.metricLabel}>{stat.label}</p>
+              <p className={styles.metricValue}>{stat.value}</p>
             </article>
           ))}
-        </div>
-      </section>
+        </section>
+
+        {/* Historical Data Table */}
+        <section className={styles.historySection}>
+          <div className={styles.historyHeader}>
+            <div>
+              <h2>Historical Data</h2>
+              <div className={styles.rangeSelector}>
+                {RANGE_OPTIONS.map((option) => (
+                  <Link
+                    key={option.value}
+                    href={`/?symbol=${symbol}&range=${option.value}`}
+                    className={range === option.value ? styles.rangeActive : styles.rangeOption}
+                  >
+                    {option.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+            <Link href={`/api/quote?symbol=${symbol}&history=true&range=${range}`} target="_blank">
+              Export JSON →
+            </Link>
+          </div>
+          {history.length === 0 ? (
+            <p className={styles.historyEmpty}>Historical data unavailable.</p>
+          ) : (
+            <div className={styles.historyTableWrapper}>
+              <table className={styles.historyTable}>
+                <thead>
+                  <tr>
+                    <th scope="col">Date</th>
+                    <th scope="col">Open</th>
+                    <th scope="col">High</th>
+                    <th scope="col">Low</th>
+                    <th scope="col">Close</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {history.slice(-10).reverse().map((bar) => (
+                    <tr key={bar.date}>
+                      <td>{formatDate(bar.date)}</td>
+                      <td>{formatCurrency(bar.open, quote.currency)}</td>
+                      <td>{formatCurrency(bar.high, quote.currency)}</td>
+                      <td>{formatCurrency(bar.low, quote.currency)}</td>
+                      <td>{formatCurrency(bar.close, quote.currency)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        {/* Interactive Fetch */}
+        <section className={styles.fetcherSection}>
+          <h2>Live Data Fetch</h2>
+          <p>Request real-time historical data from Yahoo Finance API.</p>
+          <HistoricalFetcher symbol={symbol} />
+        </section>
+
+        {/* News Section */}
+        <section className={styles.newsSection}>
+          <div className={styles.newsHeader}>
+            <h2>Latest News</h2>
+            <p>Yahoo Finance</p>
+          </div>
+          <div className={styles.newsGrid}>
+            {news.length === 0 && (
+              <article className={styles.newsCard}>
+                <p>No headlines available for this ticker.</p>
+              </article>
+            )}
+            {news.map((item) => (
+              <article key={item.link} className={styles.newsCard}>
+                <p className={styles.newsMeta}>
+                  {new Date(item.pubDate).toLocaleString("en-US", {
+                    hour: "numeric",
+                    minute: "2-digit",
+                    month: "short",
+                    day: "numeric",
+                  })}
+                  {item.source ? ` · ${item.source}` : null}
+                </p>
+                <a href={item.link} target="_blank" rel="noreferrer">
+                  <h3>{item.title}</h3>
+                </a>
+                {item.description ? (
+                  <p className={styles.newsDescription}>{item.description}</p>
+                ) : null}
+              </article>
+            ))}
+          </div>
+        </section>
+      </div>
     </main>
   );
 }
