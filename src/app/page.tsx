@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { HistoricalFetcher } from "@/components/HistoricalFetcher";
-import { fetchHistorical, fetchNews, fetchQuote } from "@/lib/finance";
-import type { HistoricalBar, NewsItem, QuoteData } from "@/lib/finance";
+import { StockQuoteSection } from "@/components/StockQuoteSection";
+import { fetchHistorical, fetchQuote } from "@/lib/finance";
+import type { HistoricalBar, QuoteData } from "@/lib/finance";
 import styles from "./page.module.css";
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -81,17 +82,14 @@ export default async function Home({ searchParams }: HomeProps) {
 
   let error: string | null = null;
   let quote: QuoteData | null = null;
-  let news: NewsItem[] = [];
   let history: HistoricalBar[] = [];
 
   try {
-    const [resolvedQuote, resolvedNews, resolvedHistory] = await Promise.all([
+    const [resolvedQuote, resolvedHistory] = await Promise.all([
       fetchQuote(symbol),
-      fetchNews(symbol, 6),
       fetchHistorical(symbol, range, HISTORICAL_INTERVAL),
     ]);
     quote = resolvedQuote;
-    news = resolvedNews;
     history = resolvedHistory;
   } catch (err) {
     error =
@@ -114,34 +112,22 @@ export default async function Home({ searchParams }: HomeProps) {
     );
   }
 
-  const changeIsPositive = quote.change >= 0;
-  const intradayRangePercent =
-    quote.dayLow != null &&
-    quote.dayHigh != null &&
-    quote.dayHigh !== quote.dayLow
-      ? Math.min(
-          100,
-          Math.max(
-            0,
-            ((quote.price - quote.dayLow) / (quote.dayHigh - quote.dayLow)) * 100
-          )
-        )
-      : null;
-
-  const stats = [
-    { label: "Open", value: formatCurrency(quote.open, quote.currency) },
-    { label: "Previous Close", value: formatCurrency(quote.previousClose, quote.currency) },
-    { label: "Day Low", value: formatCurrency(quote.dayLow, quote.currency) },
-    { label: "Day High", value: formatCurrency(quote.dayHigh, quote.currency) },
-  ];
 
   return (
     <main className={styles.page}>
       {/* Top Navigation */}
       <div className={styles.topBar}>
-        <div className={styles.logo}>
+        <Link href="/" className={styles.logo}>
           Stock<span>Market</span>
-        </div>
+        </Link>
+        <nav className={styles.nav}>
+          <Link href="/" className={styles.active}>
+            Home
+          </Link>
+          <Link href="/indices">Indices</Link>
+          <Link href="/crypto">Crypto</Link>
+          <Link href={`/news?symbol=${symbol}`}>News</Link>
+        </nav>
       </div>
 
       {/* Header with Ticker Info */}
@@ -185,96 +171,33 @@ export default async function Home({ searchParams }: HomeProps) {
 
       {/* Main Content Area */}
       <div className={styles.mainContent}>
-        {/* Price Hero */}
-        <section className={styles.hero}>
-          <div className={styles.priceBlock}>
-            <p className={styles.price}>{formatCurrency(quote.price, quote.currency)}</p>
-            <p
-              className={changeIsPositive ? styles.positiveChange : styles.negativeChange}
-            >
-              {quote.change >= 0 ? "+" : ""}
-              {formatCurrency(Math.abs(quote.change), quote.currency)} ({formatPercent(quote.changePercent)})
-            </p>
-          </div>
-          <div className={styles.rangeCard}>
-            <div className={styles.rangeLabels}>
-              <span>{formatCurrency(quote.dayLow, quote.currency)}</span>
-              <span>Day Range</span>
-              <span>{formatCurrency(quote.dayHigh, quote.currency)}</span>
-            </div>
-            <div className={styles.rangeTrack}>
-              {intradayRangePercent != null ? (
-                <span
-                  className={styles.rangeProgress}
-                  style={{ width: `${intradayRangePercent}%` }}
-                />
-              ) : (
-                <span className={styles.rangeUnavailable}>No intraday data</span>
-              )}
-            </div>
-          </div>
-        </section>
-
-        {/* Key Metrics */}
-        <section className={styles.metrics}>
-          {stats.map((stat) => (
-            <article className={styles.metricCard} key={stat.label}>
-              <p className={styles.metricLabel}>{stat.label}</p>
-              <p className={styles.metricValue}>{stat.value}</p>
-            </article>
-          ))}
-        </section>
-
-        {/* Historical Data Table */}
-        <section className={styles.historySection}>
-          <div className={styles.historyHeader}>
-            <div>
-              <h2>Historical Data</h2>
-              <div className={styles.rangeSelector}>
-                {RANGE_OPTIONS.map((option) => (
-                  <Link
-                    key={option.value}
-                    href={`/?symbol=${symbol}&range=${option.value}`}
-                    className={range === option.value ? styles.rangeActive : styles.rangeOption}
-                  >
-                    {option.label}
-                  </Link>
-                ))}
-              </div>
-            </div>
-            <Link href={`/api/quote?symbol=${symbol}&history=true&range=${range}`} target="_blank">
-              Export JSON →
+        {/* Quick Links Section */}
+        <section className={styles.quickLinksSection}>
+          <div className={styles.quickLinksGrid}>
+            <Link href="/indices" className={styles.quickLinkCard}>
+              <h3>Major Indices</h3>
+              <p>View S&P 500, Dow Jones, NASDAQ, and more</p>
+              <span className={styles.quickLinkArrow}>→</span>
+            </Link>
+            <Link href="/crypto" className={styles.quickLinkCard}>
+              <h3>Cryptocurrency</h3>
+              <p>Track Bitcoin, Ethereum, and popular cryptos</p>
+              <span className={styles.quickLinkArrow}>→</span>
+            </Link>
+            <Link href={`/news?symbol=${symbol}`} className={styles.quickLinkCard}>
+              <h3>News</h3>
+              <p>Latest news and headlines</p>
+              <span className={styles.quickLinkArrow}>→</span>
             </Link>
           </div>
-          {history.length === 0 ? (
-            <p className={styles.historyEmpty}>Historical data unavailable.</p>
-          ) : (
-            <div className={styles.historyTableWrapper}>
-              <table className={styles.historyTable}>
-                <thead>
-                  <tr>
-                    <th scope="col">Date</th>
-                    <th scope="col">Open</th>
-                    <th scope="col">High</th>
-                    <th scope="col">Low</th>
-                    <th scope="col">Close</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {history.slice(-10).reverse().map((bar) => (
-                    <tr key={bar.date}>
-                      <td>{formatDate(bar.date)}</td>
-                      <td>{formatCurrency(bar.open, quote.currency)}</td>
-                      <td>{formatCurrency(bar.high, quote.currency)}</td>
-                      <td>{formatCurrency(bar.low, quote.currency)}</td>
-                      <td>{formatCurrency(bar.close, quote.currency)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
         </section>
+
+        {/* Stock Quote Section */}
+        <StockQuoteSection
+          initialQuote={quote}
+          initialHistory={history}
+          symbol={symbol}
+        />
 
         {/* Interactive Fetch */}
         <section className={styles.fetcherSection}>
@@ -283,37 +206,13 @@ export default async function Home({ searchParams }: HomeProps) {
           <HistoricalFetcher symbol={symbol} />
         </section>
 
-        {/* News Section */}
-        <section className={styles.newsSection}>
-          <div className={styles.newsHeader}>
-            <h2>Latest News</h2>
-            <p>Yahoo Finance</p>
-          </div>
-          <div className={styles.newsGrid}>
-            {news.length === 0 && (
-              <article className={styles.newsCard}>
-                <p>No headlines available for this ticker.</p>
-              </article>
-            )}
-            {news.map((item) => (
-              <article key={item.link} className={styles.newsCard}>
-                <p className={styles.newsMeta}>
-                  {new Date(item.pubDate).toLocaleString("en-US", {
-                    hour: "numeric",
-                    minute: "2-digit",
-                    month: "short",
-                    day: "numeric",
-                  })}
-                  {item.source ? ` · ${item.source}` : null}
-                </p>
-                <a href={item.link} target="_blank" rel="noreferrer">
-                  <h3>{item.title}</h3>
-                </a>
-                {item.description ? (
-                  <p className={styles.newsDescription}>{item.description}</p>
-                ) : null}
-              </article>
-            ))}
+        {/* News Link Section */}
+        <section className={styles.newsLinkSection}>
+          <div className={styles.newsLinkHeader}>
+            <h2>News</h2>
+            <Link href={`/news?symbol=${symbol}`} className={styles.newsLink}>
+              View All News →
+            </Link>
           </div>
         </section>
       </div>
