@@ -6,6 +6,26 @@ const NEWS_ENDPOINT = "https://feeds.finance.yahoo.com/rss/2.0/headline";
 const parser = new XMLParser({ ignoreAttributes: false });
 const yahooFinance = new YahooFinance();
 
+const HISTORICAL_CACHE_TTL_MS = 5 * 60 * 1000;
+const historicalCache = new Map<string, { expiresAt: number; data: HistoricalBar[] }>();
+
+let yahooRequestQueue: Promise<void> = Promise.resolve();
+
+/**
+ * Yahoo's public endpoints can throttle or hang when we open too many
+ * connections simultaneously. This simple queue ensures we only have one
+ * in-flight Yahoo Finance request at a time, which keeps dev compiles from
+ * waiting on several concurrent network calls.
+ */
+function enqueueYahooCall<T>(task: () => Promise<T>): Promise<T> {
+  const nextTask = yahooRequestQueue.then(task);
+  yahooRequestQueue = nextTask.then(
+    () => undefined,
+    () => undefined
+  );
+  return nextTask;
+}
+
 type YahooRssItem = {
   title?: string;
   link?: string;
@@ -125,6 +145,13 @@ export async function fetchHistorical(
   range: "5d" | "1mo" | "3mo" | "6mo" | "1y" = "1mo",
   _interval: "1d" | "1wk" = "1d"
 ): Promise<HistoricalBar[]> {
+  const normalizedSymbol = symbol.toUpperCase().trim();
+  const cacheKey = `${normalizedSymbol}|${range}|${_interval}`;
+  const cached = historicalCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.data;
+  }
+
   const period2 = new Date();
   period2.setDate(period2.getDate() + 1); // Add 1 day to include today's data
   const period1 = new Date();
@@ -147,25 +174,34 @@ export async function fetchHistorical(
       break;
   }
 
-  const results = (await yahooFinance.historical(symbol, {
-    period1,
-    period2,
-    interval: "1d",
-  })) as HistoricalEntry[];
+  const results = (await enqueueYahooCall(() =>
+    yahooFinance.historical(normalizedSymbol, {
+      period1,
+      period2,
+      interval: _interval,
+    }) as Promise<HistoricalEntry[]>
+  ));
 
-  return results.map((entry: HistoricalEntry) => ({
+  const mapped = results.map((entry: HistoricalEntry) => ({
     date: entry.date.toISOString().split("T")[0],
     open: entry.open ?? null,
     high: entry.high ?? null,
     low: entry.low ?? null,
     close: entry.close ?? null,
   }));
+
+  historicalCache.set(cacheKey, {
+    expiresAt: Date.now() + HISTORICAL_CACHE_TTL_MS,
+    data: mapped,
+  });
+
+  return mapped;
 }
 
 export async function fetchQuote(symbol: string): Promise<QuoteData> {
-  const result = (await yahooFinance.quote(
-    symbol.toUpperCase().trim()
-  )) as QuoteResult;
+  const result = (await enqueueYahooCall(() =>
+    yahooFinance.quote(symbol.toUpperCase().trim()) as Promise<QuoteResult>
+  ));
 
   const formatEarningsDate = (date: Date | Date[] | undefined): string | null => {
     if (!date) return null;

@@ -3,10 +3,6 @@
 import type { QuoteData } from "@/lib/finance";
 import styles from "./DetailedStats.module.css";
 
-type DetailedStatsProps = {
-  quote: QuoteData;
-};
-
 function formatCurrency(value: number | null, currency = "USD") {
   if (value == null || Number.isNaN(value)) {
     return "—";

@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { HistoricalFetcher } from "@/components/HistoricalFetcher";
 import { StockQuoteSection } from "@/components/StockQuoteSection";
+import { HistoricalSnapshot } from "@/components/HistoricalSnapshot";
 import { fetchHistorical, fetchQuote } from "@/lib/finance";
 import type { HistoricalBar, QuoteData } from "@/lib/finance";
 import styles from "./page.module.css";
@@ -13,15 +13,9 @@ type HomeProps = {
 
 const DEFAULT_SYMBOL = "TSLA";
 const WATCHLIST = ["TSLA", "AAPL", "MSFT", "NVDA", "SPY", "AMZN", "META", "GOOGL"];
-const RANGE_OPTIONS = [
-  { value: "5d", label: "5 Days" },
-  { value: "1mo", label: "1 Month" },
-  { value: "3mo", label: "3 Months" },
-  { value: "6mo", label: "6 Months" },
-  { value: "1y", label: "1 Year" },
-] as const;
-const DEFAULT_RANGE = "1mo";
-const HISTORICAL_INTERVAL: Parameters<typeof fetchHistorical>[2] = "1d";
+const HISTORICAL_RANGES = ["5d", "1mo", "3mo", "6mo", "1y"] as const;
+type HistoricalRange = (typeof HISTORICAL_RANGES)[number];
+const DEFAULT_RANGE: HistoricalRange = "5d";
 
 function formatCurrency(value: number | null, currency = "USD") {
   if (value == null || Number.isNaN(value)) {
@@ -75,22 +69,24 @@ export default async function Home({ searchParams }: HomeProps) {
   const requestedRange = Array.isArray(resolvedSearchParams.range)
     ? resolvedSearchParams.range[0]
     : resolvedSearchParams.range;
-
+  const isValidRange = (
+    value: string | undefined
+  ): value is HistoricalRange =>
+    value != null && HISTORICAL_RANGES.includes(value as HistoricalRange);
   const symbol = (requestedSymbol ?? DEFAULT_SYMBOL).toUpperCase().trim();
-  const range = (RANGE_OPTIONS.find((r) => r.value === requestedRange)?.value ??
-    DEFAULT_RANGE) as Parameters<typeof fetchHistorical>[1];
+  const range: HistoricalRange = isValidRange(requestedRange)
+    ? requestedRange
+    : DEFAULT_RANGE;
 
   let error: string | null = null;
   let quote: QuoteData | null = null;
   let history: HistoricalBar[] = [];
 
   try {
-    const [resolvedQuote, resolvedHistory] = await Promise.all([
+    [quote, history] = await Promise.all([
       fetchQuote(symbol),
-      fetchHistorical(symbol, range, HISTORICAL_INTERVAL),
+      fetchHistorical(symbol, range, "1d"),
     ]);
-    quote = resolvedQuote;
-    history = resolvedHistory;
   } catch (err) {
     error =
       err instanceof Error
@@ -193,18 +189,15 @@ export default async function Home({ searchParams }: HomeProps) {
         </section>
 
         {/* Stock Quote Section */}
-        <StockQuoteSection
-          initialQuote={quote}
-          initialHistory={history}
-          symbol={symbol}
-        />
+        <StockQuoteSection initialQuote={quote} symbol={symbol} />
 
-        {/* Interactive Fetch */}
-        <section className={styles.fetcherSection}>
-          <h2>Live Data Fetch</h2>
-          <p>Request real-time historical data from Yahoo Finance API.</p>
-          <HistoricalFetcher symbol={symbol} />
-        </section>
+        {/* Historical Snapshot */}
+        <HistoricalSnapshot
+          symbol={symbol}
+          currency={quote.currency}
+          initialRange={range}
+          initialHistory={history}
+        />
 
         {/* News Link Section */}
         <section className={styles.newsLinkSection}>
