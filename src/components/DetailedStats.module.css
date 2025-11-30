@@ -1,0 +1,118 @@
+.statsSection {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 24px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* When inside expanded card, adjust padding and remove border */
+.expandedContent .statsSection {
+  padding: 20px 0;
+  border: none;
+  background: transparent;
+  border-radius: 0;
+}
+
+.expandedContent .statsHeader {
+  margin-bottom: 16px;
+  font-size: 1rem;
+}
+
+.statsHeader {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #111827;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 24px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #111827;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  width: 100%;
+}
+
+/* When inside expanded card, use single column and adjust styling */
+.expandedStats .statsGrid {
+  grid-template-columns: 1fr !important;
+  gap: 12px !important;
+}
+
+.expandedStats .statsHeader {
+  margin-bottom: 16px !important;
+  font-size: 1rem !important;
+}
+
+.statItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  background: #f9fafb;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  transition: all 0.15s;
+  min-height: 48px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.statItem:hover {
+  background: #fff;
+  border-color: #d1d5db;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.statLabel {
+  font-size: 0.85rem;
+  color: #6b7280;
+  font-weight: 500;
+  flex: 0 1 auto;
+  min-width: 0;
+  margin-right: 16px;
+}
+
+.statValue {
+  font-size: 0.95rem;
+  color: #111827;
+  font-weight: 600;
+  text-align: right;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .statsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .statItem {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .statValue {
+    text-align: left;
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .statsSection {
+    padding: 20px 16px;
+  }
+
+  .statItem {
+    padding: 12px;
+  }
+}
+

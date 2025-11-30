@@ -47,6 +47,28 @@ type QuoteResult = {
   regularMarketOpen?: number;
   regularMarketPreviousClose?: number;
   regularMarketTime?: Date;
+  bid?: number;
+  ask?: number;
+  bidSize?: number;
+  askSize?: number;
+  fiftyTwoWeekLow?: number;
+  fiftyTwoWeekHigh?: number;
+  regularMarketVolume?: number;
+  averageVolume?: number;
+  averageVolume10days?: number;
+  marketCap?: number;
+  beta?: number;
+  trailingPE?: number;
+  forwardPE?: number;
+  trailingEps?: number;
+  forwardEps?: number;
+  earningsDate?: Date | Date[];
+  dividendRate?: number;
+  dividendYield?: number;
+  exDividendDate?: Date;
+  targetMeanPrice?: number;
+  targetHighPrice?: number;
+  targetLowPrice?: number;
 };
 
 export type QuoteData = {
@@ -62,6 +84,23 @@ export type QuoteData = {
   open: number | null;
   previousClose: number | null;
   timestamp: number | null;
+  bid: number | null;
+  ask: number | null;
+  bidSize: number | null;
+  askSize: number | null;
+  fiftyTwoWeekLow: number | null;
+  fiftyTwoWeekHigh: number | null;
+  volume: number | null;
+  averageVolume: number | null;
+  marketCap: number | null;
+  beta: number | null;
+  trailingPE: number | null;
+  trailingEps: number | null;
+  earningsDate: string | null;
+  dividendRate: number | null;
+  dividendYield: number | null;
+  exDividendDate: string | null;
+  targetMeanPrice: number | null;
 };
 
 export type NewsItem = {
@@ -128,6 +167,32 @@ export async function fetchQuote(symbol: string): Promise<QuoteData> {
     symbol.toUpperCase().trim()
   )) as QuoteResult;
 
+  const formatEarningsDate = (date: Date | Date[] | undefined): string | null => {
+    if (!date) return null;
+    if (Array.isArray(date)) {
+      if (date.length === 0) return null;
+      return new Date(date[0]).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    }
+    return new Date(date).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+
+  const formatExDividendDate = (date: Date | undefined): string | null => {
+    if (!date) return null;
+    return new Date(date).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+
   return {
     symbol: result.symbol ?? symbol,
     name:
@@ -144,6 +209,23 @@ export async function fetchQuote(symbol: string): Promise<QuoteData> {
     timestamp: result.regularMarketTime
       ? Math.floor(result.regularMarketTime.getTime() / 1000)
       : null,
+    bid: result.bid ?? null,
+    ask: result.ask ?? null,
+    bidSize: result.bidSize ?? null,
+    askSize: result.askSize ?? null,
+    fiftyTwoWeekLow: result.fiftyTwoWeekLow ?? null,
+    fiftyTwoWeekHigh: result.fiftyTwoWeekHigh ?? null,
+    volume: result.regularMarketVolume ?? result.averageVolume10days ?? null,
+    averageVolume: result.averageVolume ?? null,
+    marketCap: result.marketCap ?? null,
+    beta: result.beta ?? null,
+    trailingPE: result.trailingPE ?? null,
+    trailingEps: result.trailingEps ?? null,
+    earningsDate: formatEarningsDate(result.earningsDate),
+    dividendRate: result.dividendRate ?? null,
+    dividendYield: result.dividendYield ?? null,
+    exDividendDate: formatExDividendDate(result.exDividendDate),
+    targetMeanPrice: result.targetMeanPrice ?? null,
   };
 }
 
